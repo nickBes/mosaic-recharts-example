@@ -1,6 +1,5 @@
 import { useRef } from "react";
 import "./App.css";
-import { useEffect, useState } from "react";
 import {
   loadCSV,
   Query,
@@ -9,14 +8,7 @@ import {
   isBetween,
   literal,
 } from "@uwdata/mosaic-sql";
-import {
-  Selection,
-  wasmConnector,
-  Coordinator,
-  MosaicClient,
-  makeClient,
-  coordinator,
-} from "@uwdata/mosaic-core";
+import { Selection, wasmConnector, coordinator } from "@uwdata/mosaic-core";
 import {
   BarChart,
   Bar,
@@ -31,6 +23,7 @@ import {
   ScatterChart,
 } from "recharts";
 import { useMosaicClient } from "./use-mosaic-client";
+import { useEffect } from "react";
 
 coordinator().databaseConnector(wasmConnector({ log: true }));
 coordinator().manager._logQueries = true;
@@ -40,9 +33,9 @@ await coordinator().exec(
 );
 
 function App() {
-  const selection = useRef(Selection.intersect());
-  const [scatterData, setScatterData] = useState(null);
-  const { data: barData, client } = useMosaicClient({
+  const selection = useRef(Selection.single());
+
+  const { data: barData } = useMosaicClient({
     query(filter = []) {
       return Query.select({
         date: dateMonth("date"),
@@ -54,29 +47,19 @@ function App() {
     },
   });
 
-  useEffect(() => {
-    let scatterClient = makeClient({
-      coordinator: coordinator.current,
-      selection: selection.current,
-      query: (predicate) => {
-        return Query.from("weather")
-          .select({
-            wind: "wind",
-            temp_max: "temp_max",
-          })
-          .where(predicate);
-      },
-      queryResult: (data) => {
-        setScatterData(Array.from(data));
-      },
-    });
+  const { data: scatterData } = useMosaicClient({
+    selection: selection.current,
+    query: (filter = []) => {
+      return Query.from("weather")
+        .select({
+          wind: "wind",
+          temp_max: "temp_max",
+        })
+        .where(filter);
+    },
+  });
 
-    return () => {
-      if (scatterClient) {
-        scatterClient.destroy();
-      }
-    };
-  }, []);
+  useEffect(() => {});
 
   return (
     <div>
@@ -120,20 +103,22 @@ function App() {
                 ]);
 
                 const clause = {
-                  source: client,
+                  source: "brush",
                   predicate,
                   value: [startDate, endDate],
                 };
 
-                this.selection.activate(clause);
-                this.selection.update(clause);
+                selection.current.update(clause);
               }
             }}
             tickFormatter={(date) =>
               date.toLocaleDateString("default", { month: "long" })
             }
           />
-          <Bar dataKey="precipitation" fill="#8884d8" />
+          <Bar
+            dataKey="precipitation"
+            fill="#8884d8"
+          />
         </BarChart>
       ) : (
         <p>Loading Bars...</p>

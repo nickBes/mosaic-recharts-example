@@ -1,14 +1,11 @@
 import { makeClient, coordinator } from "@uwdata/mosaic-core";
-import { useRef } from "react";
-import { useState } from "react";
-import { useEffect } from "react";
+import { useEffect, useState } from "react";
 
 export function useMosaicClient(opts) {
   const { selection, prepare, query } = opts;
   const [isError, setIsError] = useState(false);
   const [isPending, setIsPending] = useState(false);
   const [data, setData] = useState(undefined);
-  const clientRef = useRef(null);
 
   useEffect(() => {
     const client = makeClient({
@@ -31,12 +28,12 @@ export function useMosaicClient(opts) {
       },
     });
 
-    clientRef.current = client;
-
     return () => {
       client.destroy();
     };
-  }, [selection, prepare, query]);
+    // prepare and query are defined once per client
+    // eslint-disable-next-line react-hooks/exhaustive-deps
+  }, [selection]);
 
-  return { data, isPending, isError, client: clientRef.current };
+  return { data, isPending, isError };
 }
