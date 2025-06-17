@@ -1,14 +1,7 @@
 import { useRef } from "react";
 import "./App.css";
-import {
-  loadCSV,
-  Query,
-  avg,
-  dateMonth,
-  isBetween,
-  literal,
-} from "@uwdata/mosaic-sql";
-import { Selection, wasmConnector, coordinator } from "@uwdata/mosaic-core";
+import { Query, avg, dateMonth, isBetween, literal } from "@uwdata/mosaic-sql";
+import { Selection } from "@uwdata/mosaic-core";
 import {
   BarChart,
   Bar,
@@ -23,17 +16,31 @@ import {
   ScatterChart,
 } from "recharts";
 import { useMosaicClient } from "./use-mosaic-client";
-import { useEffect } from "react";
-
-coordinator().databaseConnector(wasmConnector({ log: true }));
-coordinator().manager._logQueries = true;
-
-await coordinator().exec(
-  loadCSV("weather", `${window.location}seattle-weather.csv`)
-);
+import { useDebounceCallback } from "usehooks-ts";
 
 function App() {
   const selection = useRef(Selection.single());
+
+  const updateSelection = useDebounceCallback(({ startIndex, endIndex }) => {
+    const startDate = barData[startIndex]?.date;
+    const endDate = barData[endIndex]?.date;
+
+    if (startDate && endDate) {
+      const predicate = isBetween(dateMonth("date"), [
+        dateMonth(literal(startDate)),
+        dateMonth(literal(endDate)),
+      ]);
+
+      const clause = {
+        source: "brush",
+        predicate,
+        value: [startDate, endDate],
+      };
+
+      selection.current.activate(clause);
+      selection.current.update(clause);
+    }
+  }, 500);
 
   const { data: barData } = useMosaicClient({
     query(filter = []) {
@@ -47,7 +54,7 @@ function App() {
     },
   });
 
-  const { data: scatterData } = useMosaicClient({
+  const { data: scatterData1 } = useMosaicClient({
     selection: selection.current,
     query: (filter = []) => {
       return Query.from("weather")
@@ -59,10 +66,27 @@ function App() {
     },
   });
 
-  useEffect(() => {});
+  const { data: scatterData2 } = useMosaicClient({
+    selection: selection.current,
+    query: (filter = []) => {
+      return Query.from("weather")
+        .select({
+          wind: "wind",
+          temp_max: "temp_min",
+        })
+        .where(filter);
+    },
+  });
 
   return (
-    <div>
+    <div
+      style={{
+        display: "flex",
+        flexDirection: "column",
+        alignItems: "center",
+        gap: "20px",
+      }}
+    >
       {barData ? (
         <BarChart
           width={1200}
@@ -92,54 +116,52 @@ function App() {
             dataKey="date"
             height={30}
             stroke="#8884d8"
-            onChange={({ startIndex, endIndex }) => {
-              const startDate = barData[startIndex]?.date;
-              const endDate = barData[endIndex]?.date;
-
-              if (startDate && endDate) {
-                const predicate = isBetween(dateMonth("date"), [
-                  dateMonth(literal(startDate)),
-                  dateMonth(literal(endDate)),
-                ]);
-
-                const clause = {
-                  source: "brush",
-                  predicate,
-                  value: [startDate, endDate],
-                };
-
-                selection.current.update(clause);
-              }
-            }}
+            onChange={updateSelection}
             tickFormatter={(date) =>
               date.toLocaleDateString("default", { month: "long" })
             }
           />
-          <Bar
-            dataKey="precipitation"
-            fill="#8884d8"
-          />
+          <Bar dataKey="precipitation" fill="#8884d8" />
         </BarChart>
       ) : (
         <p>Loading Bars...</p>
       )}
-      {scatterData ? (
-        <ScatterChart width={1200} height={250}>
-          <CartesianGrid />
-          <XAxis type="number" dataKey="temp_max" name="stature" unit="cm" />
-          <YAxis type="number" dataKey="wind" name="weight" unit="kg" />
-          <Tooltip cursor={{ strokeDasharray: "3 3" }} />
-          <Scatter
-            name="A school"
-            data={scatterData}
-            fill="#8884d8"
-            fillOpacity={0.3}
-            r={2}
-          />
-        </ScatterChart>
-      ) : (
-        <p>Loading Scatter...</p>
-      )}
+      <div style={{ display: "flex", gap: "20px" }}>
+        {scatterData1 ? (
+          <ScatterChart width={300} height={300}>
+            <CartesianGrid />
+            <XAxis type="number" dataKey="temp_max" name="stature" />
+            <YAxis type="number" dataKey="wind" name="weight" />
+            <Tooltip cursor={{ strokeDasharray: "3 3" }} />
+            <Scatter
+              name="A school"
+              data={scatterData1}
+              fill="#8884d8"
+              fillOpacity={0.1}
+              r={2}
+            />
+          </ScatterChart>
+        ) : (
+          <p>Loading Scatter 1...</p>
+        )}
+        {scatterData2 ? (
+          <ScatterChart width={300} height={300}>
+            <CartesianGrid />
+            <XAxis type="number" dataKey="temp_max" name="stature" />
+            <YAxis type="number" dataKey="wind" name="weight" />
+            <Tooltip cursor={{ strokeDasharray: "3 3" }} />
+            <Scatter
+              name="A school"
+              data={scatterData2}
+              fill="#8884d8"
+              fillOpacity={0.1}
+              r={2}
+            />
+          </ScatterChart>
+        ) : (
+          <p>Loading Scatter 2...</p>
+        )}
+      </div>
     </div>
   );
 }
