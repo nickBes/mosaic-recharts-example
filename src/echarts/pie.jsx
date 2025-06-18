@@ -1,8 +1,8 @@
-import { init } from "echarts";
+import { dispose, init } from "echarts";
 import { useEffect } from "react";
 import { useRef } from "react";
 import { useMosaicClient } from "../use-mosaic-client";
-import { Query } from "@uwdata/mosaic-sql";
+import { eq, literal, Query, sum, desc } from "@uwdata/mosaic-sql";
 
 export function PieChart(props) {
   const { selection } = props;
@@ -11,20 +11,20 @@ export function PieChart(props) {
 
   const { data, isPending, isError } = useMosaicClient({
     selection,
-    query() {
+    query(filter = []) {
       return Query.from("flights_airport")
         .select({
           name: "destination",
-          value: "count",
+          value: sum("count"),
         })
-        .orderby("count")
+        .where(filter)
+        .groupby("destination")
+        .orderby(desc(sum("count")))
         .limit(10);
     },
   });
 
   useEffect(() => {
-    console.log("Pie data", data);
-
     data &&
       chartRef.current?.setOption({
         series: [
@@ -40,10 +40,34 @@ export function PieChart(props) {
   useEffect(() => {
     if (chartWrapper.current) {
       chartRef.current = init(chartWrapper.current, "dark");
-    }
-  }, []);
 
-  console.log("Render attempt");
+      chartRef.current.on("click", (opts) => {
+        const { data } = opts;
+
+        const relatedClauses = selection.clauses.filter(
+          (clause) => clause.source === "pie"
+        );
+
+        if (relatedClauses.length > 0) {
+          selection.reset(relatedClauses);
+        } else if (data && data.name) {
+          const predicate = eq("destination", literal(data.name));
+
+          const clause = {
+            source: "pie",
+            predicate,
+            value: data.name,
+          };
+
+          selection.update(clause);
+        }
+      });
+    }
+
+    return () => {
+      chartRef.current && dispose(chartRef.current);
+    };
+  }, [selection]);
 
   return (
     <div style={{ width: 500, height: 500 }} ref={chartWrapper}>

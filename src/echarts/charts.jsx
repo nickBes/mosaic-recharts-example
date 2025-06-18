@@ -4,7 +4,7 @@ import { loadCSV, loadParquet } from "@uwdata/mosaic-sql";
 import { PieChart } from "./pie";
 
 export function Charts() {
-  const selection = useRef(Selection.single());
+  const selection = useRef(Selection.intersect());
   const [status, setStatus] = useState("loading");
 
   useEffect(() => {
