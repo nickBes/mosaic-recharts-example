@@ -12,6 +12,7 @@
   "dependencies": {
     "@uwdata/mosaic-core": "^0.17.0",
     "@uwdata/mosaic-sql": "^0.17.0",
+    "echarts": "^5.6.0",
     "react": "^19.1.0",
     "react-dom": "^19.1.0",
     "recharts": "^2.15.3",
