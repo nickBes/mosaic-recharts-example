@@ -2,6 +2,7 @@ import { coordinator, Selection, wasmConnector } from "@uwdata/mosaic-core";
 import { useRef, useEffect, useState } from "react";
 import { loadCSV, loadParquet } from "@uwdata/mosaic-sql";
 import { PieChart } from "./pie";
+import { BarChart } from "./bar";
 
 export function Charts() {
   const selection = useRef(Selection.intersect());
@@ -38,6 +39,7 @@ export function Charts() {
   return (
     <div style={{ display: "flex", gap: "20px" }}>
       <PieChart selection={selection.current} />
+      <BarChart selection={selection.current} />
     </div>
   );
 }
